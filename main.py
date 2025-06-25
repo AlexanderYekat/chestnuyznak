@@ -85,6 +85,9 @@ def main():
         sys.stdout = open(log_filename, 'w', encoding='utf-8')
         print(f"Логирование начато в файл: {log_filename}")
 
+        # Счетчик предупреждений
+        warnings_count = 0
+
         # Шаг 1: Загружаем все идентификаторы и информацию о страницах PDF
         # Добавляем gtin для товаров
         all_identifiers_map = {} # {'идентификатор': {'pdf_path': '...', 'page_number': N, 'gtin': '...'}}
@@ -105,10 +108,12 @@ def main():
                             all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': gtin_from_file}
                         else:
                             sys.__stdout__.write(f"Предупреждение: Не удалось извлечь GTIN из имени файла {filename}. Идентификатор {identifier} не будет связан с GTIN.\n")
+                            warnings_count += 1
                             print(f"Предупреждение: Не удалось извлечь GTIN из имени файла {filename}. Идентификатор {identifier} не будет связан с GTIN.")
                             all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': None} # Store None if GTIN extraction fails
                 else:
                     sys.__stdout__.write(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}\n")
+                    warnings_count += 1
                     print(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}")
 
         # Обрабатываем каталог наборов (аналогично товарам, но GTIN для самих наборов не важен)
@@ -124,6 +129,7 @@ def main():
                         all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': None} # GTIN for set itself is None/not relevant
                 else:
                     sys.__stdout__.write(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}\n")
+                    warnings_count += 1
                     print(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}")
 
         print("DEBUG: Загруженная карта идентификаторов (all_identifiers_map):")
@@ -159,6 +165,7 @@ def main():
                         current_bundle_gtin = all_identifiers_map[first_sntin]['gtin']
                     else:
                         sys.__stdout__.write(f"Предупреждение: Не удалось найти GTIN для первого товара {first_sntin} в наборе {unit_serial}. Пропускаем этот набор.\n")
+                        warnings_count += 1
                         print(f"Предупреждение: Не удалось найти GTIN для первого товара {first_sntin} в наборе {unit_serial}. Пропускаем этот набор.")
                         continue
 
@@ -173,6 +180,7 @@ def main():
                         temp_set_doc.close()
                     else:
                         sys.__stdout__.write(f"Предупреждение: Не удалось получить страницу PDF для набора: {unit_serial}\n")
+                        warnings_count += 1
                         print(f"Предупреждение: Не удалось получить страницу PDF для набора: {unit_serial}")
                         continue # Пропускаем этот пакет, если страница набора не может быть получена
 
@@ -190,18 +198,23 @@ def main():
                                     temp_good_doc.close()
                                 else:
                                     sys.__stdout__.write(f"Предупреждение: Не удалось получить страницу PDF для товара: {sntin}\n")
+                                    warnings_count += 1
                                     print(f"Предупреждение: Не удалось получить страницу PDF для товара: {sntin}")
                             else:
                                 sys.__stdout__.write(f"Предупреждение: GTIN товара {sntin} ({gtin_of_good}) не соответствует GTIN набора ({current_bundle_gtin}). Пропускаем этот товар.\n")
+                                warnings_count += 1
                                 print(f"Предупреждение: GTIN товара {sntin} ({gtin_of_good}) не соответствует GTIN набора ({current_bundle_gtin}). Пропускаем этот товар.")
                         else:
                             sys.__stdout__.write(f"Предупреждение: Идентификатор товара {sntin} не найден в CSV-файлах.\n")
+                            warnings_count += 1
                             print(f"Предупреждение: Идентификатор товара {sntin} не найден в CSV-файлах.")
                 else:
                     sys.__stdout__.write(f"Предупреждение: Не удалось определить GTIN для набора {unit_serial}. Пропускаем.\n")
+                    warnings_count += 1
                     print(f"Предупреждение: Не удалось определить GTIN для набора {unit_serial}. Пропускаем.")
             else:
                 sys.__stdout__.write(f"Предупреждение: Идентификатор набора {unit_serial} не найден в CSV-файлах. Пропускаем.\n")
+                warnings_count += 1
                 print(f"Предупреждение: Идентификатор набора {unit_serial} не найден в CSV-файлах. Пропускаем.")
 
         # Сохраняем все сгенерированные PDF-файлы
@@ -212,6 +225,10 @@ def main():
             print(f"Создан файл: {output_filename}")
 
         print("Программа завершила работу.")
+
+        if warnings_count == 0:
+            sys.__stdout__.write("Предупреждений не было.\n")
+            print("Предупреждений не было.")
 
     finally:
         sys.stdout.close()
