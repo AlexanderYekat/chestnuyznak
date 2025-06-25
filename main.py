@@ -93,28 +93,52 @@ def main():
         all_identifiers_map = {} # {'идентификатор': {'pdf_path': '...', 'page_number': N, 'gtin': '...'}}
 
         # Обрабатываем каталог товаров
-        for filename in os.listdir(goods_dir):
-            if filename.endswith('.csv'):
-                base_name = filename[:-4] # Удаляем .csv
-                csv_filepath = os.path.join(goods_dir, filename)
-                pdf_filepath = os.path.join(goods_dir, base_name + '.pdf')
-                # Extract GTIN from the filename for goods
-                gtin_from_file = extract_gtin_from_filename(base_name)
+        goods_files = os.listdir(goods_dir)
+        csv_files = [f for f in goods_files if f.endswith('.csv')]
+        pdf_files = [f for f in goods_files if f.endswith('.pdf')]
+        if len(csv_files) == 1 and len(pdf_files) == 1 and len(goods_files) == 2:
+            # Особый случай: в папке только один csv и один pdf
+            csv_filepath = os.path.join(goods_dir, csv_files[0])
+            pdf_filepath = os.path.join(goods_dir, pdf_files[0])
+            gtin_from_file = extract_gtin_from_filename(os.path.splitext(csv_files[0])[0])
+            if os.path.exists(pdf_filepath):
+                identifiers = load_identifiers_from_csv(csv_filepath)
+                for i, identifier in enumerate(identifiers):
+                    if gtin_from_file:
+                        all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': gtin_from_file}
+                    else:
+                        sys.__stdout__.write(f"Предупреждение: Не удалось извлечь GTIN из имени файла {csv_files[0]}. Идентификатор {identifier} не будет связан с GTIN.\n")
+                        warnings_count += 1
+                        print(f"Предупреждение: Не удалось извлечь GTIN из имени файла {csv_files[0]}. Идентификатор {identifier} не будет связан с GTIN.")
+                        all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': None}
+            else:
+                sys.__stdout__.write(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}\n")
+                warnings_count += 1
+                print(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}")
+        else:
+            # Обычный режим: перебираем все csv
+            for filename in goods_files:
+                if filename.endswith('.csv'):
+                    base_name = filename[:-4] # Удаляем .csv
+                    csv_filepath = os.path.join(goods_dir, filename)
+                    pdf_filepath = os.path.join(goods_dir, base_name + '.pdf')
+                    # Extract GTIN from the filename for goods
+                    gtin_from_file = extract_gtin_from_filename(base_name)
 
-                if os.path.exists(pdf_filepath):
-                    identifiers = load_identifiers_from_csv(csv_filepath)
-                    for i, identifier in enumerate(identifiers):
-                        if gtin_from_file:
-                            all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': gtin_from_file}
-                        else:
-                            sys.__stdout__.write(f"Предупреждение: Не удалось извлечь GTIN из имени файла {filename}. Идентификатор {identifier} не будет связан с GTIN.\n")
-                            warnings_count += 1
-                            print(f"Предупреждение: Не удалось извлечь GTIN из имени файла {filename}. Идентификатор {identifier} не будет связан с GTIN.")
-                            all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': None} # Store None if GTIN extraction fails
-                else:
-                    sys.__stdout__.write(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}\n")
-                    warnings_count += 1
-                    print(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}")
+                    if os.path.exists(pdf_filepath):
+                        identifiers = load_identifiers_from_csv(csv_filepath)
+                        for i, identifier in enumerate(identifiers):
+                            if gtin_from_file:
+                                all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': gtin_from_file}
+                            else:
+                                sys.__stdout__.write(f"Предупреждение: Не удалось извлечь GTIN из имени файла {filename}. Идентификатор {identifier} не будет связан с GTIN.\n")
+                                warnings_count += 1
+                                print(f"Предупреждение: Не удалось извлечь GTIN из имени файла {filename}. Идентификатор {identifier} не будет связан с GTIN.")
+                                all_identifiers_map[identifier] = {'pdf_path': pdf_filepath, 'page_number': i, 'gtin': None} # Store None if GTIN extraction fails
+                    else:
+                        sys.__stdout__.write(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}\n")
+                        warnings_count += 1
+                        print(f"Предупреждение: Не найден соответствующий PDF-файл для {csv_filepath}")
 
         # Обрабатываем каталог наборов (аналогично товарам, но GTIN для самих наборов не важен)
         for filename in os.listdir(set_dir):
