@@ -3,6 +3,7 @@ import sys
 import shutil
 import subprocess
 import datetime
+import zipfile
 
 # Получить текущую дату в формате YYYYMMDD
 current_date = datetime.datetime.now().strftime('%Y%m%d')
@@ -20,6 +21,19 @@ for subfolder in subfolders:
     # 0. Очистить входные/выходные папки перед каждой задачей
     subprocess.run([sys.executable, 'clear.py'], check=True)
     
+    # --- ДОБАВЛЕНО: Распаковка zip, если нет pdf/csv, но есть zip ---
+    files_in_subfolder = os.listdir(subfolder)
+    has_pdf_or_csv = any(f.lower().endswith(('.pdf', '.csv')) for f in files_in_subfolder)
+    zip_files = [f for f in files_in_subfolder if f.lower().endswith('.zip')]
+    if not has_pdf_or_csv and zip_files:
+        zip_path = os.path.join(subfolder, zip_files[0])  # Берём первый найденный zip
+        print(f'Распаковываю архив: {zip_path}')
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(subfolder)
+        # Обновляем список файлов после распаковки
+        files_in_subfolder = os.listdir(subfolder)
+    # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
     # 1. Запустить match_and_rename.py
     subprocess.run([sys.executable, 'match_and_rename.py', subfolder], check=True)
 
